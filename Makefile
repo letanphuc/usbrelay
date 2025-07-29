@@ -1,7 +1,11 @@
 include LIBVER.in
 include Makefile.in
 
-LDLIBS += -lhidapi-$(HIDAPI)
+ifeq ($(HIDAPI),)
+    LDLIBS += -lhidapi
+else
+    LDLIBS += -lhidapi-$(HIDAPI)
+endif
 LDCONFIG ?= /sbin/ldconfig
 __BINDIR ?= $(PREFIX)/bin
 INCLUDEDIR ?= ${PREFIX}/include
@@ -10,12 +14,22 @@ PKGCONFDIR ?= ${LIBDIR}/pkgconfig
 all: usbrelay libusbrelay.so libusbrelay.pc
 
 libusbrelay.so: libusbrelay.c libusbrelay.h 
+ifeq ($(shell uname -s),Darwin)
+	$(CC) -dynamiclib -fPIC -install_name @rpath/$@.$(USBMAJOR) $(CPPFLAGS) $(CFLAGS)  $< $(LDFLAGS) -o $@.$(USBLIBVER) $(LDLIBS)
+	ln -sf libusbrelay.so.$(USBLIBVER) libusbrelay.so.$(USBMAJOR)
+	ln -sf libusbrelay.so.$(USBLIBVER) libusbrelay.so
+else
 	$(CC) -shared -fPIC -Wl,-soname,$@.$(USBMAJOR) $(CPPFLAGS) $(CFLAGS)  $< $(LDFLAGS) -o $@.$(USBLIBVER) $(LDLIBS)
 	$(LDCONFIG) -n .
 	ln -sr libusbrelay.so.$(USBLIBVER) libusbrelay.so
+endif
 
 usbrelay: usbrelay.c libusbrelay.h libusbrelay.so
+ifeq ($(shell uname -s),Darwin)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< -L./ -lusbrelay -Wl,-rpath,@loader_path $(LDFLAGS) -o $@ $(LDLIBS)
+else
 	$(CC) $(CPPFLAGS) $(CFLAGS)  $< -l:libusbrelay.so.$(USBLIBVER) -L./ $(LDFLAGS) -o $@ $(LDLIBS)
+endif
 
 python:
 	$(MAKE) -C usbrelay_py

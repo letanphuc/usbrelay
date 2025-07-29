@@ -1,10 +1,27 @@
 CFLAGS += -O2 -Wall
-HIDAPI = hidraw
 
-PREFIX ?= /usr
+# Detect macOS and set appropriate HIDAPI backend and paths
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+    HIDAPI = 
+    # Homebrew hidapi path
+    CPPFLAGS += -I/opt/homebrew/Cellar/hidapi/0.15.0/include
+    LDFLAGS += -L/opt/homebrew/Cellar/hidapi/0.15.0/lib
+    # Homebrew argp-standalone path for macOS
+    CPPFLAGS += -I/opt/homebrew/include
+    LDFLAGS += -L/opt/homebrew/lib
+    LDLIBS += -largp
+    PREFIX ?= /usr/local
+else
+    HIDAPI = hidraw
+    PREFIX ?= /usr
+endif
 
 DEB_HOST_MULTIARCH=$(shell dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null)
-ifeq ($(and \
+ifeq ($(UNAME_S),Darwin)
+    # macOS uses /usr/local/lib by default
+    LIBDIR ?= $(PREFIX)/lib
+else ifeq ($(and \
            $(if $(DEB_HOST_MULTIARCH),"true"), \
            $(if $(wildcard $(PREFIX)/lib/$(DEB_HOST_MULTIARCH)/.),"true")\
        ),"true")
